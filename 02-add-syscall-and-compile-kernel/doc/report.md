@@ -207,6 +207,56 @@ scripts/kconfig/conf  --silentoldconfig Kconfig
   ...
 ```
 
+
+
+## 编译安装busybox
+
+- `busybox`是linux环境下的精简工具集和linux内核一起构成一个最小的执行环境
+
+- 使用`make menuconfig`进行tui界面的编译选项配置
+
+- 使用`make`和`make install`这对命令进行编译
+
+- 编译产物会生成在源码的`_install`目录下
+
+  ```
+  ❯ ls
+  bin  linuxrc  sbin  usr
+  ```
+
+## 制作内核镜像
+
+### 前置知识
+
+- linux启动流程
+
+  ```mermaid
+  flowchart TD;
+  subgraph bios
+  加电自检 --> 初始化硬件 --> 查找启动介质
+  end
+  bios --> mbr --> bootloader -->  initramfs,kernel --> 挂载rootfs --> init
+  ```
+
+  其中bootloader和之前的部分qemu已经帮我们完成了， 所以我们主要完成后面的部分
+
+### 安装内核模块拷贝内核镜像拷贝busybox
+
+```shell
+❯ make modules_install INSTALL_MOD_PATH=../../myos
+❯ j my__2__/home/ashenye/repo/2023-os-lab/02-add-syscall-and-compile-kernel/myos
+❯ ls
+lib
+❯ cp ../src/linux-4.14.327/arch/x86/boot/bzImage .
+❯ cp -r ../src/busybox-1.31.0/_install ./busybox
+❯ ls
+busybox  bzImage  lib
+```
+
+### 制作虚拟rootfs镜像
+
+
+
 ## 出现的问题
 
 ### 找不到符号`sys_my_set_nice`
@@ -217,6 +267,63 @@ make: *** [Makefile:1049: vmlinux] Error 1
 ```
 
 系统调用命名不规范
+
+### 编译busybox时`/usr/bin/ld: cannot find -lcrypt: No such file or directory`
+
+我用的linux发行版为了裁剪体积或者强制动态链接的未来证明安全性把libcrypt.a移除掉了用其他发行版的软件仓库的libcrypt.a就行了
+
+```shell
+wget 'http://ftp.cz.debian.org/debian/pool/main/libx/libxcrypt/libcrypt-dev_4.4.27-1.1_amd64.deb'
+# verify deb package signature or download from multiple sources and use diff
+ar x libcrypt-dev_4.4.27-1.1_
+    Index
+    » Programming & Scripting
+    » [SOLVED] Static building of busybox fails, after update gcc/glibc?
+
+amd64.deb
+tar xf data.tar.xz
+sudo cp usr/lib/x86_64-linux-gnu/libcrypt.a /lib/
+sudo chmod o+r /lib/libcrypt.a
+```
+
+### 静态编译busybox失败
+
+```
+Static linking against glibc, can't use --gc-sections
+Trying libraries: crypt m
+Failed: -Wl,--start-group  -lcrypt -lm  -Wl,--end-group
+Output of:
+gcc -Wall -Wshadow -Wwrite-strings -Wundef -Wstrict-prototypes -Wunused -Wunused-parameter -Wunused-function -Wunused-value -Wmissing-prototypes -Wmissing-declarations -Wno-format-security -Wdeclaration-after-statement -Wold-style-definition -fno-builtin-strlen -finline-limit=0 -fomit-frame-pointer -ffunction-sections -fdata-sections -fno-guess-branch-probability -funsigned-char -static-libgcc -falign-functions=1 -falign-jumps=1 -falign-labels=1 -falign-loops=1 -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-builtin-printf -Os -static -o busybox_unstripped -Wl,--sort-common -Wl,--sort-section,alignment -Wl,--start-group applets/built-in.o archival/lib.a archival/libarchive/lib.a console-tools/lib.a coreutils/lib.a coreutils/libcoreutils/lib.a debianutils/lib.a klibc-utils/lib.a e2fsprogs/lib.a editors/lib.a findutils/lib.a init/lib.a libbb/lib.a libpwdgrp/lib.a loginutils/lib.a mailutils/lib.a miscutils/lib.a modutils/lib.a networking/lib.a networking/libiproute/lib.a networking/udhcp/lib.a printutils/lib.a procps/lib.a runit/lib.a selinux/lib.a shell/lib.a sysklogd/lib.a util-linux/lib.a util-linux/volume_id/lib.a archival/built-in.o archival/libarchive/built-in.o console-tools/built-in.o coreutils/built-in.o coreutils/libcoreutils/built-in.o debianutils/built-in.o klibc-utils/built-in.o e2fsprogs/built-in.o editors/built-in.o findutils/built-in.o init/built-in.o libbb/built-in.o libpwdgrp/built-in.o loginutils/built-in.o mailutils/built-in.o miscutils/built-in.o modutils/built-in.o networking/built-in.o networking/libiproute/built-in.o networking/udhcp/built-in.o printutils/built-in.o procps/built-in.o runit/built-in.o selinux/built-in.o shell/built-in.o sysklogd/built-in.o util-linux/built-in.o util-linux/volume_id/built-in.o -Wl,--end-group -Wl,--start-group -lcrypt -lm -Wl,--end-group
+==========
+/usr/bin/ld: libbb/lib.a(xconnect.o): in function `str2sockaddr':
+xconnect.c:(.text.str2sockaddr+0x11d): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/bin/ld: coreutils/lib.a(mktemp.o): in function `mktemp_main':
+mktemp.c:(.text.mktemp_main+0x99): warning: the use of `mktemp' is dangerous, better use `mkstemp' or `mkdtemp'
+/usr/bin/ld: libbb/lib.a(xgethostbyname.o): in function `xgethostbyname':
+xgethostbyname.c:(.text.xgethostbyname+0x5): warning: Using 'gethostbyname' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/bin/ld: libbb/lib.a(xconnect.o): in function `bb_lookup_port':
+xconnect.c:(.text.bb_lookup_port+0x46): warning: Using 'getservbyname' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+/usr/bin/ld: util-linux/lib.a(rdate.o): in function `rdate_main':
+rdate.c:(.text.rdate_main+0xf6): undefined reference to `stime'
+/usr/bin/ld: coreutils/lib.a(date.o): in function `date_main':
+date.c:(.text.date_main+0x23e): undefined reference to `stime'
+collect2: error: ld returned 1 exit status
+Note: if build needs additional libraries, put them in CONFIG_EXTRA_LDLIBS.
+Example: CONFIG_EXTRA_LDLIBS="pthread dl tirpc audit pam"
+make: *** [Makefile:718: busybox_unstripped] Error 1
+```
+
+glibc静态编译似乎不是很对付, 换用musl作为标准库
+
+```shell
+sudo pacman -S kernel-headers-musl musl #安装musl相关依赖
+```
+
+```shell
+make -j8 CC=musl-gcc #重新编译, musl-gcc也是gcc不过gcc默认链接到glibc而musl-gcc链接到musl
+```
+
+
 
 https://zhuanlan.zhihu.com/p/469972204
 

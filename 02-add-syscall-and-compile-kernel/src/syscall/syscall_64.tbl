@@ -339,7 +339,7 @@
 330	common	pkey_alloc		sys_pkey_alloc
 331	common	pkey_free		sys_pkey_free
 332	common	statx			sys_statx
-335	64	my_set_nice			__x64_sys_my_set_nice
+335	64	my_set_nice			sys_my_set_nice
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
