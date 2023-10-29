@@ -9,6 +9,9 @@ build:
 clean: 
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
 insmod:
-	sudo insmod $(NAME).ko
+	sudo modprobe ./$(NAME).ko pid=$(pid)
 rmmod:
-	sudo rmmod $(NAME)
+	sudo modprobe -R ./$(NAME).ko
+dmesg:
+	sudo dmesg | rg "print-family-info"
+

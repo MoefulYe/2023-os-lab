@@ -9,6 +9,9 @@ build:
 clean: 
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
 insmod:
-	sudo insmod $(NAME).ko
+	sudo modprobe ./$(NAME).ko
 rmmod:
-	sudo rmmod $(NAME)
+	sudo modprobe -R ./$(NAME).ko
+dmesg:
+	sudo dmesg | rg "print-kernel-threads-info"
+
