@@ -1,5 +1,19 @@
 # 编译内核并添加系统调用
 
+## 目标
+
+修改内核并实现修改或返回指定进程的优先级的系统调用
+
+## 前置知识
+
+- [linux的启动过程](https://zh.wikipedia.org/wiki/Linux%E5%90%AF%E5%8A%A8%E8%BF%9B%E7%A8%8B)
+
+  ![](./linux-boot.svg)
+
+  其中bootloader和之前的部分qemu已经帮我们完成了， 所以我们主要完成后面的部分
+
+- 
+
 ## 下载linux内核
 
 - 下载**4.14.327**到本机
@@ -230,14 +244,8 @@ scripts/kconfig/conf  --silentoldconfig Kconfig
 
 - linux启动流程
 
-  ```mermaid
-  flowchart TD;
-  subgraph bios
-  加电自检 --> 初始化硬件 --> 查找启动介质
-  end
-  bios --> mbr --> bootloader -->  initramfs,kernel --> 挂载rootfs --> init
-  ```
-
+  
+  
   其中bootloader和之前的部分qemu已经帮我们完成了， 所以我们主要完成后面的部分
 
 ### 安装内核模块拷贝内核镜像拷贝busybox
@@ -325,6 +333,13 @@ make -j8 CC=musl-gcc #重新编译, musl-gcc也是gcc不过gcc默认链接到gli
 
 
 
+## 参考材料
+
 https://zhuanlan.zhihu.com/p/469972204
 
 https://zhuanlan.zhihu.com/p/424240082
+
+[the_dao_of_minimal_linux_live.txt](https://ivandavidov.github.io/minimal/the_dao_of_minimal_linux_live.txt)
+
+[Minimal Linux Live](https://github.com/ivandavidov/minimal)
+
