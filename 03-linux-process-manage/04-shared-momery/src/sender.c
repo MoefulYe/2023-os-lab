@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
     size_t len = 0;
     char *line;
     len = getline(&line, &len, stdin);
+    memset(shm_ptr, 0, 1024);
     memcpy(shm_ptr, line, len);
     sem_post(full);
     if (is_exit(line)) {

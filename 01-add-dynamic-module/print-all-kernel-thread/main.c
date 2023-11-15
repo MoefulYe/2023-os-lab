@@ -11,7 +11,8 @@ MODULE_DESCRIPTION("print all kernel threads info");
 MODULE_VERSION("0.1");
 
 static int __init print_info_init(void) {
-  struct task_struct *p = &init_task;
+  // struct task_struct *p = &init_task;
+  struct task_struct *p;
   for_each_process(p) if (p->mm == NULL) {
     printk(KERN_INFO "print-kernel-threads-info: "
                      "name: %s, pid: %d, state: %ld, prio: %d, parent: %d",
