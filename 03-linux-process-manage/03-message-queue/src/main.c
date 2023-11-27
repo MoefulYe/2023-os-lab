@@ -90,6 +90,7 @@ void msg_print(Message *msg) {
 }
 
 _Bool is_exit(char *str) { return strcmp(str, "exit\n") == 0; }
+_Bool is_yield(char *str) { return strcmp(str, "yield\n") == 0; }
 
 void *sender0() {
   key_t mq = msgget(MQ_KEY, IPC_CREAT | 0666);
@@ -97,20 +98,25 @@ void *sender0() {
   sem_wait(&sender_mutex);
   for (;;) {
     sem_wait(&sync_sender);
-    printf("sender0> ");
-    char *line;
-    size_t len;
-    len = getline(&line, &len, stdin);
-    if (is_exit(line)) {
-      Message msg = msg_end0();
+    for (;;) {
+      printf("sender0> ");
+      char *line;
+      size_t len;
+      len = getline(&line, &len, stdin);
+      if (is_exit(line)) {
+        Message msg = msg_end0();
+        msgsnd(mq, &msg, MAX_MSG_SIZE, 0);
+        sem_post(&sync_receiver);
+        goto exit;
+      } else if (is_yield(line)) {
+        break;
+      }
+      Message msg = msg_new(Sender0toReceiver, line);
       msgsnd(mq, &msg, MAX_MSG_SIZE, 0);
-      sem_post(&sync_receiver);
-      break;
     }
-    Message msg = msg_new(Sender0toReceiver, line);
-    msgsnd(mq, &msg, MAX_MSG_SIZE, 0);
     sem_post(&sync_receiver);
   }
+exit:
   sem_wait(&over);
   Message msg;
   msgrcv(MQ_KEY, &msg, MAX_MSG_SIZE, AcktoSender0, 0);
@@ -127,23 +133,28 @@ void *sender1() {
   sem_wait(&sender_mutex);
   for (;;) {
     sem_wait(&sync_sender);
-    printf("sender1> ");
-    char *line;
-    size_t len;
-    len = getline(&line, &len, stdin);
-    if (is_exit(line)) {
-      Message msg = msg_end1();
+    for (;;) {
+      printf("sender1> ");
+      char *line;
+      size_t len;
+      len = getline(&line, &len, stdin);
+      if (is_exit(line)) {
+        Message msg = msg_end0();
+        msgsnd(mq, &msg, MAX_MSG_SIZE, 0);
+        sem_post(&sync_receiver);
+        goto exit;
+      } else if (is_yield(line)) {
+        break;
+      }
+      Message msg = msg_new(Sender0toReceiver, line);
       msgsnd(mq, &msg, MAX_MSG_SIZE, 0);
-      sem_post(&sync_receiver);
-      break;
     }
-    Message msg = msg_new(Sender1toReceiver, line);
-    msgsnd(mq, &msg, MAX_MSG_SIZE, 0);
     sem_post(&sync_receiver);
   }
+exit:
   sem_wait(&over);
   Message msg;
-  msgrcv(MQ_KEY, &msg, MAX_MSG_SIZE, AcktoSender1, 0);
+  msgrcv(MQ_KEY, &msg, MAX_MSG_SIZE, AcktoSender0, 0);
   printf("sender1 received ack as follow:\n");
   msg_print(&msg);
   sem_post(&sync_receiver);
@@ -157,29 +168,35 @@ void *receiver() {
   for (;;) {
     Message msg;
     sem_wait(&sync_receiver);
-    msgrcv(mq, &msg, MAX_MSG_SIZE, Any, 0);
-    printf("receiver received message as follow:\n");
-    msg_print(&msg);
-    if (msg_is_end0(&msg)) {
-      Message ack = msg_ack0();
-      sem_post(&over);
-      msgsnd(mq, &ack, MAX_MSG_SIZE, 0);
-      done++;
-      if (done == 2) {
+    for (;;) {
+      int res = msgrcv(mq, &msg, MAX_MSG_SIZE, Any, IPC_NOWAIT);
+      if (res == -1) {
         break;
       }
-    } else if (msg_is_end1(&msg)) {
-      Message ack = msg_ack1();
-      sem_post(&over);
-      msgsnd(mq, &ack, MAX_MSG_SIZE, 0);
-      done++;
-      if (done == 2) {
-        break;
+      printf("receiver received message as follow:\n");
+      msg_print(&msg);
+      if (msg_is_end0(&msg)) {
+        Message ack = msg_ack0();
+        sem_post(&over);
+        msgsnd(mq, &ack, MAX_MSG_SIZE, 0);
+        done++;
+        if (done == 2) {
+          goto exit;
+        }
+      } else if (msg_is_end1(&msg)) {
+        Message ack = msg_ack1();
+        sem_post(&over);
+        msgsnd(mq, &ack, MAX_MSG_SIZE, 0);
+        done++;
+        if (done == 2) {
+          goto exit;
+        }
+      } else {
+        sem_post(&sync_sender);
       }
-    } else {
-      sem_post(&sync_sender);
     }
   }
+exit:
   msgctl(mq, IPC_RMID, NULL);
   return NULL;
 }
