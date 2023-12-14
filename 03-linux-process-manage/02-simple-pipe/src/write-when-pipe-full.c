@@ -23,7 +23,6 @@ void init() {
 void drop() {
   close(pipefd[0]);
   close(pipefd[1]);
-  sem_unlink("write-when-pipe-full::write_mutex");
 }
 
 int child(int id) {
